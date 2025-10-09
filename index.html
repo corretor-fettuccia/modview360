@@ -3,169 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="#"/>
-    <title>Visualizador 3D - Iluminação Corrigida</title>
+    <title>Visualizador 3D</title>
     <style>
-        body { 
-            margin: 0; 
+        * {
+            margin: 0;
             padding: 0;
-            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-        }
-        canvas { 
-            display: block; 
-            outline: none;
-        }
-        #controls {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(25, 25, 35, 0.9);
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            z-index: 100;
-            max-width: 280px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #ecf0f1;
-        }
-        #controls h3 {
-            margin: 0 0 12px 0;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        .control-group {
-            margin: 10px 0;
-        }
-        .control-label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 11px;
-            color: #bdc3c7;
-            font-weight: 500;
-        }
-        button {
-            margin: 3px;
-            padding: 8px 12px;
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 500;
-            transition: all 0.2s ease;
+            overflow: hidden;
+            height: 100vh;
         }
-        button:hover {
-            background: linear-gradient(135deg, #2980b9, #2573a7);
-        }
-        .button-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            margin: 8px 0;
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(25, 25, 35, 0.95);
-            color: #ecf0f1;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 1000;
-            font-size: 14px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        #status {
-            position: absolute;
-            bottom: 15px;
-            left: 15px;
-            background: rgba(25, 25, 35, 0.9);
-            color: #ecf0f1;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 11px;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .hidden {
-            display: none !important;
-        }
-        .slider {
+
+        #container {
+            position: relative;
             width: 100%;
-            height: 5px;
-            border-radius: 2px;
-            background: #34495e;
-            outline: none;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+            height: 100vh;
         }
-        .slider:hover {
-            opacity: 1;
+
+        /* Tela de Carregamento */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 18, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4cc9f0;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Controles UI */
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 200px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        #ui.hidden {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+
+        #uiToggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 101;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        #uiToggle:hover {
+            background: rgba(76, 201, 240, 0.8);
+            transform: scale(1.1);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group h3 {
+            margin-bottom: 10px;
+            color: #4cc9f0;
+        }
+
+        button {
+            background: linear-gradient(45deg, #4cc9f0, #4361ee);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 2px;
+            font-size: 11px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Barra de Status */
+        #statusBar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            z-index: 100;
+        }
+
+        #statusText {
+            color: #4cc9f0;
+        }
+
+        #stats {
+            color: #f72585;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            #ui {
+                min-width: 180px;
+                font-size: 14px;
+            }
+
+            button {
+                padding: 10px 12px;
+                font-size: 12px;
+            }
+
+            #statusBar {
+                flex-direction: column;
+                gap: 5px;
+                text-align: center;
+            }
+
+            #uiToggle {
+                top: 10px;
+                left: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #ui {
+                min-width: 160px;
+                padding: 12px;
+            }
+
+            .control-group h3 {
+                font-size: 14px;
+            }
+
+            button {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="controls">
-        <h3>🎮 Controles de Performance</h3>
-        
-        <div class="control-group">
-            <div class="control-label">🚀 Navegação</div>
-            <div class="button-group">
-                <button onclick="resetCamera()">🎯 Reset</button>
+    <div id="container">
+        <!-- Tela de Carregamento -->
+        <div id="loading">
+            <div class="spinner"></div>
+            <div id="progress">🚀 Inicializando Visualizador 3D...</div>
+        </div>
+
+        <!-- Botão Toggle para UI -->
+        <div id="uiToggle" title="Mostrar/Ocultar Menu">☰</div>
+
+        <!-- Controles UI -->
+        <div id="ui">
+            <div class="control-group">
+                <h3>🎮 Controles 3D</h3>
+            </div>
+            <div class="control-group">
+                <button onclick="resetCamera()">🎯 Resetar Câmera</button>
                 <button onclick="toggleWireframe()">📐 Wireframe</button>
+                <button onclick="toggleShadows()">🌑 Sombras</button>
+                <button onclick="disposeScene()">🗑️ Limpar Cena</button>
+            </div>
+            <div class="control-group">
+                <h3>🎮 Navegação</h3>
+                <div style="font-size: 10px; opacity: 0.8;">
+                    WASD - Mover<br>
+                    Q/E - Altura<br>
+                    Mouse - Rotacionar
+                </div>
+            </div>
+            <div class="control-group">
+                <button onclick="toggleUI()">👁️ Ocultar Menu</button>
             </div>
         </div>
 
-        <div class="control-group">
-            <div class="control-label">💡 Iluminação</div>
-            <div class="button-group">
-                <button onclick="toggleShadows()">🌑 Shadows</button>
-                <button onclick="updateLighting()">🔆 Update Lights</button>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <div class="control-label">⚡ Performance</div>
-            <div class="button-group">
-                <button onclick="toggleRenderMode()">🔄 Render Mode</button>
-                <button onclick="disposeScene()">🗑️ Clean Memory</button>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <div class="control-label">☀️ Intensidade Luz</div>
-            <div class="slider-container">
-                <input type="range" min="20" max="200" value="100" class="slider" id="lightIntensity">
-            </div>
+        <!-- Barra de Status -->
+        <div id="statusBar">
+            <div id="statusText">🚀 Pronto para carregar modelo</div>
+            <div id="stats">📊 Aguardando arquivo...</div>
         </div>
     </div>
-    
-    <div id="loading" class="hidden">
-        <div style="font-size: 32px; margin-bottom: 10px;">⚡</div>
-        <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Otimizando Carga...</div>
-        <div id="progress" style="margin-top: 10px; font-size: 12px; color: #bdc3c7;"></div>
-    </div>
 
-    <div id="status">
-        <div id="statusText">🟢 Sistema Otimizado - Pronto</div>
-        <div id="stats" style="margin-top: 4px; font-size: 10px; color: #95a5a6;"></div>
-    </div>
-
+    <!-- Bibliotecas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Carregar loaders da maneira correta -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/MTLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Aplicação JavaScript -->
     <script src="app.js"></script>
-    
 </body>
 </html>
