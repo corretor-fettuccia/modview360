@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador 3D</title>
+    <title>Visualizador 3D - Corretor Roberto Fettuccia</title>
     <style>
         * {
             margin: 0;
@@ -61,7 +61,8 @@
             }
         }
 
-        /* Controles UI */
+        /* Controles UI - DESATIVADO */
+        /*
         #ui {
             position: absolute;
             top: 20px;
@@ -140,8 +141,9 @@
         button:active {
             transform: translateY(0);
         }
+        */
 
-        /* Barra de Status */
+        /* Barra de Status - MODIFICADA */
         #statusBar {
             position: absolute;
             bottom: 20px;
@@ -157,6 +159,13 @@
             align-items: center;
             font-size: 12px;
             z-index: 100;
+            gap: 15px;
+        }
+
+        .status-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
         }
 
         #statusText {
@@ -165,10 +174,51 @@
 
         #stats {
             color: #f72585;
+            font-size: 11px;
+        }
+
+        .status-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status-btn {
+            background: linear-gradient(45deg, #4cc9f0, #4361ee);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .status-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+        }
+
+        .status-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Botões desativados */
+        .disabled-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .disabled-btn:hover {
+            transform: none;
+            box-shadow: none;
         }
 
         /* Mobile */
         @media (max-width: 768px) {
+            /*
             #ui {
                 min-width: 180px;
                 font-size: 14px;
@@ -178,20 +228,34 @@
                 padding: 10px 12px;
                 font-size: 12px;
             }
+            */
 
             #statusBar {
                 flex-direction: column;
-                gap: 5px;
+                gap: 10px;
                 text-align: center;
             }
 
+            .status-info {
+                order: 2;
+            }
+
+            .status-controls {
+                order: 1;
+                width: 100%;
+                justify-content: center;
+            }
+
+            /*
             #uiToggle {
                 top: 10px;
                 left: 10px;
             }
+            */
         }
 
         @media (max-width: 480px) {
+            /*
             #ui {
                 min-width: 160px;
                 padding: 12px;
@@ -205,6 +269,19 @@
                 padding: 8px 10px;
                 font-size: 11px;
             }
+            */
+
+            #statusBar {
+                padding: 8px 12px;
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+
+            .status-btn {
+                padding: 6px 10px;
+                font-size: 10px;
+            }
         }
     </style>
 </head>
@@ -216,10 +293,13 @@
             <div id="progress">🚀 Inicializando Visualizador 3D...</div>
         </div>
 
-        <!-- Botão Toggle para UI -->
+        <!-- Botão Toggle para UI - DESATIVADO -->
+        <!--
         <div id="uiToggle" title="Mostrar/Ocultar Menu">☰</div>
+        -->
 
-        <!-- Controles UI -->
+        <!-- Controles UI - DESATIVADO -->
+        <!--
         <div id="ui">
             <div class="control-group">
                 <h3>🎮 Controles 3D</h3>
@@ -242,11 +322,25 @@
                 <button onclick="toggleUI()">👁️ Ocultar Menu</button>
             </div>
         </div>
+        -->
 
-        <!-- Barra de Status -->
+        <!-- Barra de Status MODIFICADA -->
         <div id="statusBar">
-            <div id="statusText">🚀 Pronto para carregar modelo</div>
-            <div id="stats">📊 Aguardando arquivo...</div>
+            <div class="status-info">
+                <div id="statusText">🚀 Pronto para carregar modelo</div>
+                <div id="stats">📊 Aguardando arquivo...</div>
+            </div>
+            <div class="status-controls">
+                <!-- Botão ativo -->
+                <button class="status-btn" onclick="resetCamera()">🎯 Resetar Câmera</button>
+                
+                <!-- Botões desativados com comentários -->
+                <!-- 
+                <button class="status-btn disabled-btn" onclick="toggleWireframe()" disabled>📐 Wireframe</button>
+                <button class="status-btn disabled-btn" onclick="toggleShadows()" disabled>🌑 Sombras</button>
+                <button class="status-btn disabled-btn" onclick="disposeScene()" disabled>🗑️ Limpar Cena</button>
+                -->
+            </div>
         </div>
     </div>
 
@@ -257,7 +351,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
     <!-- Aplicação JavaScript -->
     <script src="app.js"></script>
 </body>

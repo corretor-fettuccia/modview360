@@ -13,6 +13,7 @@ let loadingElement, progressElement, statusElement, statsElement;
 let uiVisible = true;
 let isMobile = false;
 let uiToggleElement, uiElement;
+let rendererDomElement = null;
 
 // =============================================
 // 🎯 INICIALIZAÇÃO
@@ -38,7 +39,10 @@ function init() {
     console.log('OrbitControls:', typeof THREE.OrbitControls);
 
     try {
+        // Inicializar na ordem correta
+        initBasicUI();
         initScene();
+        initUI(); // Agora chamado DEPOIS do renderer estar criado
         checkForModel();
         startRenderLoop();
         console.log('✅ Visualizador inicializado com sucesso');
@@ -48,16 +52,22 @@ function init() {
     }
 }
 
-function initScene() {
-    // Inicializar elementos da UI
+function initBasicUI() {
+    // Inicializar apenas elementos básicos da UI primeiro
     loadingElement = document.getElementById('loading');
     progressElement = document.getElementById('progress');
     statusElement = document.getElementById('statusText');
     statsElement = document.getElementById('stats');
+    
+    if (loadingElement && progressElement) {
+        loadingElement.classList.remove('hidden');
+        progressElement.textContent = '🚀 Inicializando Visualizador 3D...';
+    }
+}
 
-    // Inicializar controles de UI
-    initUI();
-
+function initScene() {
+    console.log('🎯 Inicializando cena 3D...');
+    
     // Criar cena
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a12);
@@ -77,32 +87,21 @@ function initScene() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
     // Atualização para Three.js r128+
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    if (renderer.outputColorSpace !== undefined) {
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+    }
     
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.getElementById('container').appendChild(renderer.domElement);
+    
+    const container = document.getElementById('container');
+    container.appendChild(renderer.domElement);
+    rendererDomElement = renderer.domElement;
+
+    console.log('✅ Renderizador criado com sucesso');
 
     // Configurar controles de órbita
-    try {
-        if (typeof THREE.OrbitControls !== 'undefined') {
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            console.log('✅ OrbitControls carregado via THREE.OrbitControls');
-        } else {
-            console.warn('⚠️ OrbitControls não encontrado, usando controles básicos');
-            createBasicControls();
-        }
-    } catch (error) {
-        console.warn('⚠️ Erro ao carregar OrbitControls, usando controles básicos:', error);
-        createBasicControls();
-    }
-    
-    if (controls) {
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.rotateSpeed = 0.5;
-        controls.enablePan = true;
-    }
+    setupControls();
 
     // Configurar iluminação
     setupLighting();
@@ -114,36 +113,110 @@ function initScene() {
     updateStats('Aguardando arquivo...');
 }
 
+function setupControls() {
+    try {
+        if (typeof THREE.OrbitControls !== 'undefined') {
+            controls = new THREE.OrbitControls(camera, rendererDomElement);
+            console.log('✅ OrbitControls carregado via THREE.OrbitControls');
+            
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.rotateSpeed = 0.5;
+            controls.enablePan = true;
+            
+            // Configurações específicas para mobile
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                controls.rotateSpeed = 0.3;
+                controls.panSpeed = 0.5;
+                if (controls.touches) {
+                    controls.touches = {
+                        ONE: THREE.TOUCH.ROTATE,
+                        TWO: THREE.TOUCH.DOLLY_PAN
+                    };
+                }
+            }
+        } else {
+            console.warn('⚠️ OrbitControls não encontrado, usando controles básicos');
+            createBasicControls();
+        }
+    } catch (error) {
+        console.warn('⚠️ Erro ao carregar OrbitControls, usando controles básicos:', error);
+        createBasicControls();
+    }
+}
+
 // =============================================
 // 🎮 CONTROLES DE UI E MOBILE
 // =============================================
 
 function initUI() {
+    console.log('🎮 Inicializando UI...');
+    
     uiToggleElement = document.getElementById('uiToggle');
     uiElement = document.getElementById('ui');
+    
+    if (!uiToggleElement || !uiElement) {
+        console.warn('⚠️ Elementos da UI não encontrados');
+        return;
+    }
     
     // Verificar se é mobile
     isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     
+    console.log(`📱 Dispositivo: ${isMobile ? 'Mobile' : 'Desktop'}`);
+    
     // Configurar eventos
     uiToggleElement.addEventListener('click', toggleUI);
     
-    // Ocultar automaticamente em mobile após alguns segundos
+    // Configurar eventos de toque para mobile
     if (isMobile) {
+        setupMobileTouchEvents();
+        
+        // Ocultar automaticamente em mobile após alguns segundos
         setTimeout(() => {
             hideUI();
         }, 5000);
     }
     
-    // Evento para mostrar UI temporariamente ao tocar na tela (mobile)
-    if (isMobile) {
-        let tapTimer;
-        renderer.domElement.addEventListener('touchstart', (e) => {
-            if (!uiVisible && e.touches.length === 1) {
+    updateUIToggleButton();
+    console.log('✅ UI inicializada com sucesso');
+}
+
+function setupMobileTouchEvents() {
+    if (!rendererDomElement) {
+        console.warn('⚠️ Elemento do renderizador não disponível para eventos touch');
+        return;
+    }
+    
+    let lastTapTime = 0;
+    const doubleTapDelay = 300;
+    
+    rendererDomElement.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTapTime;
+            
+            // Detectar double tap para resetar câmera
+            if (tapLength < doubleTapDelay && tapLength > 0) {
+                e.preventDefault();
+                resetCamera();
+            }
+            
+            lastTapTime = currentTime;
+            
+            // Mostrar UI temporariamente ao toque único
+            if (!uiVisible) {
                 showUITemporarily();
             }
-        });
-    }
+        }
+    });
+    
+    // Prevenir zoom da página com dois dedos
+    rendererDomElement.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
 }
 
 function toggleUI() {
@@ -155,21 +228,25 @@ function toggleUI() {
 }
 
 function hideUI() {
-    uiElement.classList.add('hidden');
+    if (uiElement) {
+        uiElement.classList.add('hidden');
+    }
     uiVisible = false;
     updateUIToggleButton();
     
-    if (isMobile) {
+    if (isMobile && uiToggleElement) {
         uiToggleElement.style.background = 'rgba(0, 0, 0, 0.6)';
     }
 }
 
 function showUI() {
-    uiElement.classList.remove('hidden');
+    if (uiElement) {
+        uiElement.classList.remove('hidden');
+    }
     uiVisible = true;
     updateUIToggleButton();
     
-    if (isMobile) {
+    if (isMobile && uiToggleElement) {
         uiToggleElement.style.background = 'rgba(0, 0, 0, 0.8)';
         
         // Ocultar automaticamente após 5 segundos em mobile
@@ -195,6 +272,8 @@ function showUITemporarily() {
 }
 
 function updateUIToggleButton() {
+    if (!uiToggleElement) return;
+    
     if (uiVisible) {
         uiToggleElement.innerHTML = '✕';
         uiToggleElement.title = 'Ocultar Menu';
@@ -204,39 +283,28 @@ function updateUIToggleButton() {
     }
 }
 
-// Detectar redimensionamento para mobile/desktop
-function handleResize() {
-    const wasMobile = isMobile;
-    isMobile = window.innerWidth <= 768;
-    
-    // Se mudou de desktop para mobile, ocultar UI
-    if (!wasMobile && isMobile && uiVisible) {
-        setTimeout(() => {
-            hideUI();
-        }, 3000);
-    }
-    
-    // Se mudou de mobile para desktop, mostrar UI
-    if (wasMobile && !isMobile && !uiVisible) {
-        showUI();
-    }
-}
-
 // Função fallback para quando OrbitControls não está disponível
 function createBasicControls() {
     console.log('🔄 Criando controles básicos...');
     
-    // Controles básicos de mouse
+    if (!rendererDomElement) {
+        console.error('❌ Elemento do renderizador não disponível para controles básicos');
+        return;
+    }
+    
+    // Controles básicos de mouse/toque
     let isMouseDown = false;
+    let isTouchMoving = false;
     let previousMousePosition = { x: 0, y: 0 };
-    const rendererDom = renderer.domElement;
+    let previousTouchPosition = { x: 0, y: 0 };
 
-    rendererDom.addEventListener('mousedown', (e) => {
+    // Eventos de mouse
+    rendererDomElement.addEventListener('mousedown', (e) => {
         isMouseDown = true;
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
 
-    rendererDom.addEventListener('mousemove', (e) => {
+    rendererDomElement.addEventListener('mousemove', (e) => {
         if (!isMouseDown) return;
 
         const deltaMove = {
@@ -245,21 +313,62 @@ function createBasicControls() {
         };
 
         // Rotação da câmera
-        camera.position.x -= deltaMove.x * 0.01;
-        camera.position.y += deltaMove.y * 0.01;
-        camera.lookAt(scene.position);
+        camera.rotation.y -= deltaMove.x * 0.01;
+        camera.rotation.x -= deltaMove.y * 0.01;
+        
+        // Limitar rotação vertical
+        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
 
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
 
-    rendererDom.addEventListener('mouseup', () => {
+    rendererDomElement.addEventListener('mouseup', () => {
         isMouseDown = false;
     });
 
-    rendererDom.addEventListener('wheel', (e) => {
-        // Zoom com roda do mouse
+    // Eventos de toque para mobile
+    rendererDomElement.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isTouchMoving = true;
+            previousTouchPosition = { 
+                x: e.touches[0].clientX, 
+                y: e.touches[0].clientY 
+            };
+        }
+    });
+
+    rendererDomElement.addEventListener('touchmove', (e) => {
+        if (!isTouchMoving || e.touches.length !== 1) return;
+        
+        e.preventDefault();
+        
+        const deltaMove = {
+            x: e.touches[0].clientX - previousTouchPosition.x,
+            y: e.touches[0].clientY - previousTouchPosition.y
+        };
+
+        // Rotação da câmera
+        camera.rotation.y -= deltaMove.x * 0.01;
+        camera.rotation.x -= deltaMove.y * 0.01;
+        
+        // Limitar rotação vertical
+        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+
+        previousTouchPosition = { 
+            x: e.touches[0].clientX, 
+            y: e.touches[0].clientY 
+        };
+    });
+
+    rendererDomElement.addEventListener('touchend', () => {
+        isTouchMoving = false;
+    });
+
+    // Zoom com roda do mouse/pinch
+    rendererDomElement.addEventListener('wheel', (e) => {
         e.preventDefault();
         camera.position.z += e.deltaY * 0.01;
+        camera.position.z = Math.max(1, Math.min(100, camera.position.z));
     });
 
     // Simular interface do OrbitControls para compatibilidade
@@ -301,11 +410,8 @@ function setupLighting() {
 
 function setupEventListeners() {
     // Redimensionamento da janela
-    window.addEventListener('resize', () => {
-        onWindowResize();
-        handleResize();
-    });
-
+    window.addEventListener('resize', onWindowResize);
+    
     // Controles de teclado
     document.addEventListener('keydown', onKeyDown);
     
@@ -315,6 +421,36 @@ function setupEventListeners() {
             toggleUI();
         }
     });
+    
+    // Prevenir menu de contexto em mobile
+    if (isMobile) {
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+    }
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Atualizar detecção mobile/desktop
+    const wasMobile = isMobile;
+    isMobile = window.innerWidth <= 768;
+    
+    // Se mudou de desktop para mobile, ocultar UI
+    if (!wasMobile && isMobile && uiVisible) {
+        setTimeout(() => {
+            hideUI();
+        }, 3000);
+    }
+    
+    // Se mudou de mobile para desktop, mostrar UI
+    if (wasMobile && !isMobile && !uiVisible) {
+        showUI();
+    }
 }
 
 // =============================================
@@ -333,7 +469,7 @@ function resetCamera() {
         
         if (controls && controls.target) {
             controls.target.copy(modelCenter);
-            controls.update();
+            if (controls.update) controls.update();
         }
 
         updateStatus('🎯 Câmera resetada');
@@ -343,7 +479,7 @@ function resetCamera() {
         
         if (controls && controls.target) {
             controls.target.set(0, 0, 0);
-            controls.update();
+            if (controls.update) controls.update();
         }
         
         updateStatus('🎯 Câmera na posição inicial');
@@ -417,6 +553,7 @@ function checkForModel() {
     } else {
         console.log('ℹ️ Nenhum parâmetro file na URL');
         updateStatus('💡 Use: ?file=URL_DO_SEU_MODELO.zip');
+        hideLoading();
     }
 }
 
@@ -518,7 +655,9 @@ async function loadMaterials(zip, mtlFile) {
                 url,
                 (texture) => {
                     console.log(`✅ Textura carregada: ${url}`);
-                    texture.colorSpace = THREE.SRGBColorSpace;
+                    if (texture.colorSpace !== undefined) {
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                    }
                     texture.flipY = false;
                     onLoad(texture);
                 },
@@ -626,7 +765,7 @@ function setupModelCamera(model) {
     
     if (controls && controls.target) {
         controls.target.copy(modelCenter);
-        controls.update();
+        if (controls.update) controls.update();
     }
 
     console.log('📷 Câmera configurada para o modelo');
@@ -723,12 +862,6 @@ function createFallbackTexture() {
     const texture = new THREE.CanvasTexture(canvas);
     texture.flipY = false;
     return texture;
-}
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function onKeyDown(event) {
